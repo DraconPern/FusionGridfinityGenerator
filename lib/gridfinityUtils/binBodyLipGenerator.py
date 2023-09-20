@@ -81,25 +81,26 @@ def createGridfinityBinBodyLip(
         rectangularPattern = features.rectangularPatternFeatures.add(patternInput)
         lipCutoutBodies = lipCutoutBodies + list(rectangularPattern.bodies)
 
-        lipMiddleCutoutOrigin = adsk.core.Point3D.create(
-            input.origin.x + input.wallThickness,
-            input.origin.y + input.wallThickness,
-            input.origin.z,
-        )
-        lipMidCutout = extrudeUtils.createBoxAtPoint(
-            actualLipBodyWidth - input.wallThickness * 2,
-            actualLipBodyLength - input.wallThickness * 2,
-            lipBodyHeight,
-            targetComponent,
-            lipMiddleCutoutOrigin,
-        )
-        filletUtils.filletEdgesByLength(
-            lipMidCutout.faces,
-            const.BIN_CORNER_FILLET_RADIUS - input.wallThickness,
-            lipBodyHeight,
-            targetComponent,
-        )
-        bodiesToSubtract.append(lipMidCutout.bodies.item(0))
+        if not input.isLid:
+            lipMiddleCutoutOrigin = adsk.core.Point3D.create(
+                input.origin.x + input.wallThickness,
+                input.origin.y + input.wallThickness,
+                input.origin.z,
+            )
+            lipMidCutout = extrudeUtils.createBoxAtPoint(
+                actualLipBodyWidth - input.wallThickness * 2,
+                actualLipBodyLength - input.wallThickness * 2,
+                lipBodyHeight,
+                targetComponent,
+                lipMiddleCutoutOrigin,
+            )
+            filletUtils.filletEdgesByLength(
+                lipMidCutout.faces,
+                const.BIN_CORNER_FILLET_RADIUS - input.wallThickness,
+                lipBodyHeight,
+                targetComponent,
+            )
+            bodiesToSubtract.append(lipMidCutout.bodies.item(0))
 
     else:
         lipCutoutInput = BaseGeneratorInput()

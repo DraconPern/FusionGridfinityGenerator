@@ -72,9 +72,10 @@ def createGridfinityBinBody(
         lipInput.hasLipNotches = input.hasLipNotches
         lipInput.xyTolerance = input.xyTolerance
         lipInput.origin = lipOriginPoint
+        lipInput.isLid = input.isLid
         lipBody = createGridfinityBinBodyLip(lipInput, targetComponent)
 
-        if input.wallThickness < const.BIN_LIP_WALL_THICKNESS:
+        if input.wallThickness < const.BIN_LIP_WALL_THICKNESS and not input.isLid:
             lipBottomChamferSize = max(const.BIN_BODY_CUTOUT_BOTTOM_FILLET_RADIUS, const.BIN_CORNER_FILLET_RADIUS - input.wallThickness)
             lipBottomChamferExtrude = extrudeUtils.createBoxAtPoint(
                 actualBodyWidth - input.wallThickness * 2,
@@ -117,7 +118,7 @@ def createGridfinityBinBody(
 
         totalCompartmentsWidth = compartmentsMaxX - compartmentsMinX
         totalCompartmentsLength = compartmentsMaxY - compartmentsMinY
-        
+
         compartmentWidthUnit = (totalCompartmentsWidth - (input.compartmentsByX - 1) * input.wallThickness) / input.compartmentsByX
         compartmentLengthUnit = (totalCompartmentsLength - (input.compartmentsByY - 1) * input.wallThickness) / input.compartmentsByY
 
@@ -247,7 +248,7 @@ def createCompartment(
         targetComponent,
     )
     bodiesToSubtract.append(innerCutoutBody)
-        
+
     # label tab
     if hasTab:
         tabBody = createGridfinityBinBodyTab(tabInput, targetComponent)
