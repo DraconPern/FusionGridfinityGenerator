@@ -7,6 +7,7 @@ class BinBodyLipGeneratorInput():
         self.wallThickness = const.BIN_LIP_WALL_THICKNESS
         self.hasLip = False
         self.hasLipNotches = False
+        self.isLid = False
 
     @property
     def baseWidth(self) -> float:
@@ -71,3 +72,11 @@ class BinBodyLipGeneratorInput():
     @origin.setter
     def origin(self, value: adsk.core.Point3D):
         self._originUnit = value
+
+    @property
+    def isLid(self) -> bool:
+        return self._isLid
+
+    @isLid.setter
+    def isLid(self, value: bool):
+        self._isLid = value

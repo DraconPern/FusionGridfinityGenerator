@@ -66,6 +66,7 @@ class BinBodyGeneratorInput():
         self.compartments = [BinBodyCompartmentDefinition()]
         self.compartmentsByX = 1
         self.compartmentsByY = 1
+        self.isLid = False
 
     @property
     def baseWidth(self) -> float:
@@ -234,3 +235,11 @@ class BinBodyGeneratorInput():
     @compartments.setter
     def compartments(self, value: list[BinBodyCompartmentDefinition]):
         self._compartments = value
+
+    @property
+    def isLid(self) -> bool:
+        return self._isLid
+
+    @isLid.setter
+    def isLid(self, value: bool):
+        self._isLid = value
