@@ -15,7 +15,7 @@ from ...lib.gridfinityUtils.baseGenerator import createGridfinityBase
 from ...lib.gridfinityUtils.baseGeneratorInput import BaseGeneratorInput
 from ...lib.gridfinityUtils.binBodyGenerator import createGridfinityBinBody, uniformCompartments
 from ...lib.gridfinityUtils.binBodyGeneratorInput import BinBodyGeneratorInput, BinBodyCompartmentDefinition
-from .inputState import InputState, CompartmentTableRow
+from .inputState import InputState
 from .staticInputCache import StaticInputCache
 
 app = adsk.core.Application.get()
@@ -51,9 +51,6 @@ local_handlers = []
 BIN_BASIC_SIZES_GROUP = "bin_basic_sizes_group"
 BIN_DIMENSIONS_GROUP = "bin_dimensions_group"
 BIN_FEATURES_GROUP = "bin_features_group"
-BIN_COMPARTMENTS_GROUP_ID = 'compartments_group'
-BIN_SCOOP_GROUP_ID = 'bin_scoop_group'
-BIN_TAB_FEATURES_GROUP_ID = 'bin_tab_features_group'
 BIN_BASE_FEATURES_GROUP_ID = 'bin_base_features_group'
 USER_CHANGES_GROUP_ID = 'user_changes_group'
 PREVIEW_GROUP_ID = 'preview_group'
@@ -75,27 +72,8 @@ BIN_MAGNET_CUTOUTS_INPUT_ID = 'bin_magnet_cutouts'
 BIN_SCREW_DIAMETER_INPUT = 'screw_diameter'
 BIN_MAGNET_DIAMETER_INPUT = 'magnet_diameter'
 BIN_MAGNET_HEIGHT_INPUT = 'magnet_height'
-BIN_HAS_SCOOP_INPUT_ID = 'bin_has_scoop'
-BIN_SCOOP_MAX_RADIUS_INPUT_ID = 'bin_scoop_max_radius'
-BIN_HAS_TAB_INPUT_ID = 'bin_has_tab'
-BIN_TAB_LENGTH_INPUT_ID = 'bin_tab_length'
-BIN_TAB_WIDTH_INPUT_ID = 'bin_tab_width'
-BIN_TAB_POSITION_INPUT_ID = 'bin_tab_position'
-BIN_TAB_ANGLE_INPUT_ID = 'bin_tab_angle'
 BIN_WITH_LIP_INPUT_ID = 'with_lip'
 BIN_WITH_LIP_NOTCHES_INPUT_ID = 'with_lip_notches'
-BIN_COMPARTMENTS_GRID_TYPE_ID = 'compartments_grid_type'
-BIN_COMPARTMENTS_GRID_TYPE_UNIFORM = 'Uniform'
-BIN_COMPARTMENTS_GRID_TYPE_CUSTOM = 'Custom grid'
-BIN_COMPARTMENTS_GRID_TYPE_INFO = 'grid_type_info'
-BIN_COMPARTMENTS_GRID_TYPE_INFO_UNIFORM = 'Divide bin uniformly along length and width dimensions'
-BIN_COMPARTMENTS_GRID_TYPE_INFO_CUSTOM = 'Input each compartment size and location. Grid size defines units for each compartment location (x, y) and dimensions (w, l)'
-BIN_COMPARTMENTS_GRID_BASE_WIDTH_ID = 'compartments_grid_w'
-BIN_COMPARTMENTS_GRID_BASE_LENGTH_ID = 'compartments_grid_l'
-BIN_COMPARTMENTS_TABLE_ID = 'compartments_table'
-BIN_COMPARTMENTS_TABLE_ADD_ID = 'compartments_table_add'
-BIN_COMPARTMENTS_TABLE_REMOVE_ID = 'compartments_table_remove'
-BIN_COMPARTMENTS_TABLE_UNIFORM_ID = 'compartments_table_uniform'
 BIN_TYPE_DROPDOWN_ID = 'bin_type'
 BIN_TYPE_HOLLOW = 'Hollow'
 BIN_TYPE_SHELLED = 'Shelled'
@@ -123,16 +101,6 @@ def defaultUiState():
         binWallThickness=const.BIN_WALL_THICKNESS,
         hasLip=True,
         hasLipNotches=True,
-        compartmentsGridWidth=1,
-        compartmentsGridLength=1,
-        compartmentsGridType=BIN_COMPARTMENTS_GRID_TYPE_UNIFORM,
-        hasScoop=False,
-        scoopMaxRadius=const.BIN_SCOOP_MAX_RADIUS,
-        hasTab=False,
-        tabLength=1,
-        tabWidth=const.BIN_TAB_WIDTH,
-        tabAngle=45,
-        tabOffset=0,
         hasBase=True,
         hasBaseScrewHole=False,
         baseScrewHoleSize=const.DIMENSION_SCREW_HOLE_DIAMETER,
@@ -140,7 +108,6 @@ def defaultUiState():
         baseMagnetSocketSize=const.DIMENSION_MAGNET_CUTOUT_DIAMETER,
         baseMagnetSocketDepth=const.DIMENSION_MAGNET_CUTOUT_DEPTH,
         preserveChanges=False,
-        customCompartments=[],
     )
 
 uiState = defaultUiState()
@@ -217,44 +184,10 @@ def render_actual_bin_dimensions_table(inputs: adsk.core.CommandInputs):
     actualDimensionsTable.maximumVisibleRows = 1
     return actualDimensionsTable
 
-def render_actual_compartment_dimension_units_table(inputs: adsk.core.CommandInputs):
-    actualDimensionsTable = inputs.addTableCommandInput(BIN_REAL_DIMENSIONS_TABLE, "Actual dimensions (mm)", 2, "1:1")
-    totalWidth = actualDimensionsTable.commandInputs.addTextBoxCommandInput("compartment_width_u", "", "Grid cell width", 1, True)
-    totalLength = actualDimensionsTable.commandInputs.addTextBoxCommandInput("compartment_length_u", "", "Grid cell length", 1, True)
-    actualDimensionsTable.addCommandInput(totalWidth, 0, 0)
-    actualDimensionsTable.addCommandInput(totalLength, 0, 1)
-    actualDimensionsTable.tablePresentationStyle = adsk.core.TablePresentationStyles.transparentBackgroundTablePresentationStyle
-    actualDimensionsTable.hasGrid = False
-    actualDimensionsTable.minimumVisibleRows = 1
-    actualDimensionsTable.maximumVisibleRows = 1
-    return actualDimensionsTable
-
 def formatString(text: str, color: str=""):
     if len(color) > 0:
         return f"<p style='color:{color}'>{text}</p>"
     return text
-
-def update_actual_compartment_unit_dimensions(
-        actualDimensionsTable: adsk.core.TableCommandInput,
-        baseWidth: float,
-        baseLength: float,
-        binWidth: float,
-        binLength: float,
-        gridWidth: int,
-        gridLength: int,
-        wallThickness: float,
-        xyTolerance: float,
-    ):
-    try:
-        minCompartmentDimensionLimit = (const.BIN_CORNER_FILLET_RADIUS - wallThickness) * 2 * 10
-        gridCellWidthInput: adsk.core.TextBoxCommandInput = actualDimensionsTable.getInputAtPosition(0, 0)
-        cellWidth = round((baseWidth * binWidth - wallThickness * 2 - xyTolerance * 2 - wallThickness * (gridWidth - 1)) / gridWidth * 10, 2)
-        gridCellWidthInput.formattedText = formatString("Grid cell width: {}mm".format(cellWidth), "" if cellWidth >= minCompartmentDimensionLimit else "red")
-        gridCellLengthInput: adsk.core.TextBoxCommandInput = actualDimensionsTable.getInputAtPosition(0, 1)
-        cellLength = round((baseLength * binLength - wallThickness * 2 - xyTolerance * 2 - wallThickness * (gridLength - 1)) / gridLength * 10, 2)
-        gridCellLengthInput.formattedText = formatString("Grid cell length: {}mm".format(cellLength), "" if cellLength >= minCompartmentDimensionLimit else "red")
-    except:
-        showErrorInMessageBox()
 
 def update_actual_bin_dimensions(actualBinDimensionsTable: adsk.core.TableCommandInput, width: adsk.core.ValueInput, length: adsk.core.ValueInput, heigh: adsk.core.ValueInput):
     try:
@@ -266,65 +199,6 @@ def update_actual_bin_dimensions(actualBinDimensionsTable: adsk.core.TableComman
         totalHeight.value = "Total height: {}mm".format(round(heigh.realValue * 10, 2))
     except:
         showErrorInMessageBox()
-
-def render_compartments_table(inputs: adsk.core.CommandInputs, initiallyVisible: bool):
-    compartmentsGroup: adsk.core.GroupCommandInput = inputs.itemById(BIN_COMPARTMENTS_GROUP_ID)
-    binCompartmentsTable = compartmentsGroup.children.addTableCommandInput(BIN_COMPARTMENTS_TABLE_ID, "Compartments", 5, "1:1:1:1:1")
-    addButton = compartmentsGroup.commandInputs.addBoolValueInput(BIN_COMPARTMENTS_TABLE_ADD_ID, "Add", False, "", False)
-    removeButton = compartmentsGroup.commandInputs.addBoolValueInput(BIN_COMPARTMENTS_TABLE_REMOVE_ID, "Remove", False, "", False)
-    populateUniform = compartmentsGroup.commandInputs.addBoolValueInput(BIN_COMPARTMENTS_TABLE_UNIFORM_ID, "Reset to uniform", False, "", False)
-    binCompartmentsTable.addToolbarCommandInput(addButton)
-    binCompartmentsTable.addToolbarCommandInput(removeButton)
-    binCompartmentsTable.addToolbarCommandInput(populateUniform)
-    binCompartmentsTable.hasGrid = False
-    binCompartmentsTable.tablePresentationStyle = adsk.core.TablePresentationStyles.nameValueTablePresentationStyle
-    x_input_label = binCompartmentsTable.commandInputs.addStringValueInput("x_input_0_label", "", "X position")
-    x_input_label.isReadOnly = True
-    x_input_label.isFullWidth = True
-    y_input_label = binCompartmentsTable.commandInputs.addStringValueInput("y_input_0_label", "", "Y position")
-    y_input_label.isReadOnly = True
-    y_input_label.isFullWidth = True
-    w_input_label = binCompartmentsTable.commandInputs.addStringValueInput("w_input_0_label", "", "Width")
-    w_input_label.isFullWidth = True
-    w_input_label.isReadOnly = True
-    l_input_label = binCompartmentsTable.commandInputs.addStringValueInput("l_input_0_label", "", "Length")
-    l_input_label.isReadOnly = True
-    l_input_label.isFullWidth = True
-    d_input_label = binCompartmentsTable.commandInputs.addStringValueInput("d_input_0_label", "", "Depth")
-    d_input_label.isReadOnly = True
-    d_input_label.isFullWidth = True
-    binCompartmentsTable.addCommandInput(x_input_label, 0, 0)
-    binCompartmentsTable.addCommandInput(y_input_label, 0, 1)
-    binCompartmentsTable.addCommandInput(w_input_label, 0, 2)
-    binCompartmentsTable.addCommandInput(l_input_label, 0, 3)
-    binCompartmentsTable.addCommandInput(d_input_label, 0, 4)
-    binCompartmentsTable.maximumVisibleRows = 20
-    binCompartmentsTable.isVisible = initiallyVisible
-    addButton.isVisible = initiallyVisible
-    removeButton.isVisible = initiallyVisible
-    populateUniform.isVisible = initiallyVisible
-
-    for row in uiState.customCompartments:
-        append_compartment_table_row(inputs, row.x, row.y, row.width, row.length, row.depth)
-
-def append_compartment_table_row(inputs: adsk.core.CommandInputs, x: int, y: int, w: int, l: int, defaultDepth: float):
-    binCompartmentsTable: adsk.core.TableCommandInput = inputs.itemById(BIN_COMPARTMENTS_TABLE_ID)
-    newRow = binCompartmentsTable.rowCount
-    x_input = binCompartmentsTable.commandInputs.addIntegerSpinnerCommandInput("x_input_{}".format(newRow), "X (u)", 0, 100, 1, x)
-    x_input.isFullWidth = True
-    y_input = binCompartmentsTable.commandInputs.addIntegerSpinnerCommandInput("y_input_{}".format(newRow), "Y (u)", 0, 100, 1, y)
-    y_input.isFullWidth = True
-    w_input = binCompartmentsTable.commandInputs.addIntegerSpinnerCommandInput("w_input_{}".format(newRow), "W (u)", 1, 100, 1, w)
-    w_input.isFullWidth = True
-    l_input = binCompartmentsTable.commandInputs.addIntegerSpinnerCommandInput("l_input_{}".format(newRow), "L (u)", 1, 100, 1, l)
-    l_input.isFullWidth = True
-    d_input = binCompartmentsTable.commandInputs.addValueInput("d_input_{}".format(newRow), "Depth (mm)", app.activeProduct.unitsManager.defaultLengthUnits, adsk.core.ValueInput.createByReal(defaultDepth))
-    d_input.isFullWidth = True
-    binCompartmentsTable.addCommandInput(x_input, newRow, 0)
-    binCompartmentsTable.addCommandInput(y_input, newRow, 1)
-    binCompartmentsTable.addCommandInput(w_input, newRow, 2)
-    binCompartmentsTable.addCommandInput(l_input, newRow, 3)
-    binCompartmentsTable.addCommandInput(d_input, newRow, 4)
 
 def is_all_input_valid(inputs: adsk.core.CommandInputs):
     result = True
@@ -346,18 +220,7 @@ def is_all_input_valid(inputs: adsk.core.CommandInputs):
     bin_magnet_cutout_depth: adsk.core.ValueCommandInput = inputs.itemById(BIN_MAGNET_HEIGHT_INPUT)
     with_lip: adsk.core.BoolValueCommandInput = inputs.itemById(BIN_WITH_LIP_INPUT_ID)
     with_lip_notches: adsk.core.BoolValueCommandInput = inputs.itemById(BIN_WITH_LIP_NOTCHES_INPUT_ID)
-    has_scoop: adsk.core.BoolValueCommandInput = inputs.itemById(BIN_HAS_SCOOP_INPUT_ID)
-    binScoopMaxRadius: adsk.core.ValueCommandInput = inputs.itemById(BIN_SCOOP_MAX_RADIUS_INPUT_ID)
-    hasTabInput: adsk.core.BoolValueCommandInput = inputs.itemById(BIN_HAS_TAB_INPUT_ID)
-    binTabLength: adsk.core.ValueCommandInput = inputs.itemById(BIN_TAB_LENGTH_INPUT_ID)
-    binTabWidth: adsk.core.ValueCommandInput = inputs.itemById(BIN_TAB_WIDTH_INPUT_ID)
-    binTabPosition: adsk.core.ValueCommandInput = inputs.itemById(BIN_TAB_POSITION_INPUT_ID)
-    binTabAngle: adsk.core.ValueCommandInput = inputs.itemById(BIN_TAB_ANGLE_INPUT_ID)
     binTypeDropdownInput: adsk.core.DropDownCommandInput = inputs.itemById(BIN_TYPE_DROPDOWN_ID)
-    binCompartmentGridTypeDropdownInput: adsk.core.DropDownCommandInput = inputs.itemById(BIN_COMPARTMENTS_GRID_TYPE_ID)
-    binCompartmentsTable: adsk.core.TableCommandInput = inputs.itemById(BIN_COMPARTMENTS_TABLE_ID)
-    compartmentsX: adsk.core.IntegerSpinnerCommandInput = inputs.itemById(BIN_COMPARTMENTS_GRID_BASE_WIDTH_ID)
-    compartmentsY: adsk.core.IntegerSpinnerCommandInput = inputs.itemById(BIN_COMPARTMENTS_GRID_BASE_LENGTH_ID)
 
     result = result and base_width_unit.value > 1
     result = result and base_length_unit.value > 1
@@ -370,26 +233,6 @@ def is_all_input_valid(inputs: adsk.core.CommandInputs):
     if bin_generate_base.value:
         result = result and (not bin_screw_holes.value or bin_screw_hole_diameter.value > 0.1) and (not bin_magnet_cutouts.value or bin_screw_hole_diameter.value < bin_magnet_cutout_diameter.value)
         result = result and bin_magnet_cutout_depth.value > 0
-
-    if bin_generate_body.value and binTypeDropdownInput.selectedItem.name == BIN_TYPE_HOLLOW:
-        if has_scoop.value:
-            result = result and binScoopMaxRadius.value > 0
-        if hasTabInput.value:
-            result = result and binTabLength.value > 0
-            result = result and binTabWidth.value > 0
-            result = result and binTabPosition.value >= 0
-            result = result and binTabAngle.value >= math.radians(30) and binTabAngle.value <= math.radians(65)
-        if binCompartmentGridTypeDropdownInput.selectedItem.name == BIN_COMPARTMENTS_GRID_TYPE_CUSTOM:
-            for i in range(1, binCompartmentsTable.rowCount):
-                posX: adsk.core.IntegerSpinnerCommandInput = binCompartmentsTable.getInputAtPosition(i, 0)
-                posY: adsk.core.IntegerSpinnerCommandInput = binCompartmentsTable.getInputAtPosition(i, 1)
-                width: adsk.core.IntegerSpinnerCommandInput = binCompartmentsTable.getInputAtPosition(i, 2)
-                length: adsk.core.IntegerSpinnerCommandInput = binCompartmentsTable.getInputAtPosition(i, 3)
-
-                result = result and posX.value >= 0 and (posX.value + width.value) <= compartmentsX.value
-                result = result and posY.value >= 0 and (posY.value + length.value) <= compartmentsY.value
-                result = result and width.value > 0 and (posX.value + width.value) <= compartmentsX.value
-                result = result and length.value > 0 and (posY.value + length.value) <= compartmentsY.value
 
     return result
 
@@ -456,53 +299,6 @@ def command_created(args: adsk.core.CommandCreatedEventArgs):
     binFeaturesGroup.children.addBoolValueInput(BIN_WITH_LIP_INPUT_ID, 'Generate lip for stackability', True, '', uiState.hasLip)
     hasLipNotches = binFeaturesGroup.children.addBoolValueInput(BIN_WITH_LIP_NOTCHES_INPUT_ID, 'Generate lip notches', True, '', uiState.hasLipNotches)
     hasLipNotches.isEnabled = uiState.hasLip
-
-    compartmentsGroup: adsk.core.GroupCommandInput = inputs.addGroupCommandInput(BIN_COMPARTMENTS_GROUP_ID, 'Bin compartments')
-    compartmentsGroup.isExpanded = uiState.getGroupExpandedState(BIN_COMPARTMENTS_GROUP_ID)
-    compartmentsGroup.children.addIntegerSpinnerCommandInput(BIN_COMPARTMENTS_GRID_BASE_WIDTH_ID, "Grid width (n per bin width)", 1, 100, 1, uiState.compartmentsGridWidth)
-    compartmentsGroup.children.addIntegerSpinnerCommandInput(BIN_COMPARTMENTS_GRID_BASE_LENGTH_ID, "Grid length (n per bin length)", 1, 100, 1, uiState.compartmentsGridLength)
-    compartmentsGridDimensionsTable = render_actual_compartment_dimension_units_table(compartmentsGroup.children)
-    staticInputCache.actualCompartmentDimensionUnitsTable = compartmentsGridDimensionsTable
-    update_actual_compartment_unit_dimensions(
-        compartmentsGridDimensionsTable,
-        uiState.baseWidth,
-        uiState.baseLength,
-        uiState.binWidth,
-        uiState.binLength,
-        uiState.compartmentsGridWidth,
-        uiState.compartmentsGridLength,
-        uiState.binWallThickness,
-        uiState.xyTolerance,
-        )
-
-    compartmentGridDropdown = compartmentsGroup.children.addDropDownCommandInput(BIN_COMPARTMENTS_GRID_TYPE_ID, "Grid type", adsk.core.DropDownStyles.LabeledIconDropDownStyle)
-    compartmentGridDropdown.listItems.add(BIN_COMPARTMENTS_GRID_TYPE_UNIFORM, uiState.compartmentsGridType == BIN_COMPARTMENTS_GRID_TYPE_UNIFORM)
-    compartmentGridDropdown.listItems.add(BIN_COMPARTMENTS_GRID_TYPE_CUSTOM, uiState.compartmentsGridType == BIN_COMPARTMENTS_GRID_TYPE_CUSTOM)
-    # textBox = compartmentsGroup.children.addTextBoxCommandInput(BIN_COMPARTMENTS_GRID_TYPE_INFO, "", BIN_COMPARTMENTS_GRID_TYPE_INFO_UNIFORM, 2, True)
-    render_compartments_table(inputs, uiState.compartmentsGridType == BIN_COMPARTMENTS_GRID_TYPE_CUSTOM)
-
-    binScoopGroup = compartmentsGroup.children.addGroupCommandInput(BIN_SCOOP_GROUP_ID, 'Scoop')
-    binScoopGroup.isExpanded = uiState.getGroupExpandedState(BIN_SCOOP_GROUP_ID)
-    binScoopGroup.children.addBoolValueInput(BIN_HAS_SCOOP_INPUT_ID, 'Add scoop (along bin width)', True, '', uiState.hasScoop)
-    binScoopGroup.children.addValueInput(BIN_SCOOP_MAX_RADIUS_INPUT_ID, 'Scoop max radius (mm)', defaultLengthUnits, adsk.core.ValueInput.createByReal(uiState.scoopMaxRadius))
-    for input in binScoopGroup.children:
-        if not input.id == BIN_HAS_SCOOP_INPUT_ID:
-            input.isEnabled = uiState.hasScoop
-
-    binTabFeaturesGroup = compartmentsGroup.children.addGroupCommandInput(BIN_TAB_FEATURES_GROUP_ID, 'Label tab')
-    binTabFeaturesGroup.isExpanded = uiState.getGroupExpandedState(BIN_TAB_FEATURES_GROUP_ID)
-    binTabFeaturesGroup.children.addBoolValueInput(BIN_HAS_TAB_INPUT_ID, 'Add label tab (along bin width)', True, '', uiState.hasTab)
-    binTabFeaturesGroup.children.addValueInput(BIN_TAB_LENGTH_INPUT_ID, 'Tab length (u)', '', adsk.core.ValueInput.createByReal(uiState.tabLength))
-    binTabFeaturesGroup.children.addValueInput(BIN_TAB_WIDTH_INPUT_ID, 'Tab width (mm)', defaultLengthUnits, adsk.core.ValueInput.createByReal(uiState.tabWidth))
-    binTabFeaturesGroup.children.addValueInput(BIN_TAB_POSITION_INPUT_ID, 'Tab offset (u)', '', adsk.core.ValueInput.createByReal(uiState.tabOffset))
-    tabObverhangAngleInput = binTabFeaturesGroup.children.addValueInput(BIN_TAB_ANGLE_INPUT_ID, 'Tab overhang angle', 'deg', adsk.core.ValueInput.createByString(str(uiState.tabAngle)))
-    tabObverhangAngleInput.minimumValue = math.radians(30)
-    tabObverhangAngleInput.isMinimumInclusive = True
-    tabObverhangAngleInput.maximumValue = math.radians(65)
-    tabObverhangAngleInput.isMaximumInclusive = True
-    for input in binTabFeaturesGroup.children:
-        if not input.id == BIN_HAS_TAB_INPUT_ID:
-            input.isEnabled = uiState.hasTab
 
     baseFeaturesGroup = inputs.addGroupCommandInput(BIN_BASE_FEATURES_GROUP_ID, 'Base interface features')
     baseFeaturesGroup.isExpanded = uiState.getGroupExpandedState(BIN_BASE_FEATURES_GROUP_ID)
@@ -593,26 +389,6 @@ def record_input_change(changed_input: adsk.core.CommandInput):
         uiState.hasLip = changed_input.value
     elif changed_input.id == BIN_WITH_LIP_NOTCHES_INPUT_ID:
         uiState.hasLipNotches = changed_input.value
-    elif changed_input.id == BIN_COMPARTMENTS_GRID_BASE_WIDTH_ID:
-        uiState.compartmentsGridWidth = changed_input.value
-    elif changed_input.id == BIN_COMPARTMENTS_GRID_BASE_LENGTH_ID:
-        uiState.compartmentsGridLength = changed_input.value
-    elif changed_input.id == BIN_COMPARTMENTS_GRID_TYPE_ID:
-        uiState.compartmentsGridType = changed_input.selectedItem.name
-    elif changed_input.id == BIN_HAS_SCOOP_INPUT_ID:
-        uiState.hasScoop = changed_input.value
-    elif changed_input.id == BIN_SCOOP_MAX_RADIUS_INPUT_ID:
-        uiState.scoopMaxRadius = changed_input.value
-    elif changed_input.id == BIN_HAS_TAB_INPUT_ID:
-        uiState.hasTab = changed_input.value
-    elif changed_input.id == BIN_TAB_LENGTH_INPUT_ID:
-        uiState.tabLength = changed_input.value
-    elif changed_input.id == BIN_TAB_WIDTH_INPUT_ID:
-        uiState.tabWidth = changed_input.value
-    elif changed_input.id == BIN_TAB_ANGLE_INPUT_ID:
-        uiState.tabAngle = changed_input.value
-    elif changed_input.id == BIN_TAB_POSITION_INPUT_ID:
-        uiState.tabOffset = changed_input.value
     elif changed_input.id == BIN_GENERATE_BASE_INPUT_ID:
         uiState.hasBase = changed_input.value
     elif changed_input.id == BIN_SCREW_HOLES_INPUT_ID:
@@ -630,18 +406,6 @@ def record_input_change(changed_input: adsk.core.CommandInput):
     elif changed_input.classType() == adsk.core.GroupCommandInput.classType():
         group_input: adsk.core.GroupCommandInput = changed_input
         uiState.groups[group_input.id] = group_input.isExpanded
-
-def cache_compartments_table_state(inputs: adsk.core.CommandInputs):
-    binCompartmentsTable: adsk.core.TableCommandInput = inputs.itemById(BIN_COMPARTMENTS_TABLE_ID)
-    uiState.customCompartments = []
-    for i in range(1, binCompartmentsTable.rowCount):
-        uiState.customCompartments.append(CompartmentTableRow(
-            binCompartmentsTable.getInputAtPosition(i, 0).value,
-            binCompartmentsTable.getInputAtPosition(i, 1).value,
-            binCompartmentsTable.getInputAtPosition(i, 2).value,
-            binCompartmentsTable.getInputAtPosition(i, 3).value,
-            binCompartmentsTable.getInputAtPosition(i, 4).value,
-        ))
 
 def command_input_changed(args: adsk.core.InputChangedEventArgs):
     changed_input = args.input
@@ -661,17 +425,6 @@ def command_input_changed(args: adsk.core.InputChangedEventArgs):
     screwHoleDiameterInput: adsk.core.ValueCommandInput = inputs.itemById(BIN_SCREW_DIAMETER_INPUT)
     withLipInput: adsk.core.BoolValueCommandInput = inputs.itemById(BIN_WITH_LIP_INPUT_ID)
     withLipNotchesInput: adsk.core.BoolValueCommandInput = inputs.itemById(BIN_WITH_LIP_NOTCHES_INPUT_ID)
-    hasScoopInput: adsk.core.BoolValueCommandInput = inputs.itemById(BIN_HAS_SCOOP_INPUT_ID)
-    scoopMaxRadiusInput: adsk.core.ValueCommandInput = inputs.itemById(BIN_SCOOP_MAX_RADIUS_INPUT_ID)
-    hasTabInput: adsk.core.BoolValueCommandInput = inputs.itemById(BIN_HAS_TAB_INPUT_ID)
-    tabLengthInput: adsk.core.ValueCommandInput = inputs.itemById(BIN_TAB_LENGTH_INPUT_ID)
-    tabWidthInput: adsk.core.ValueCommandInput = inputs.itemById(BIN_TAB_WIDTH_INPUT_ID)
-    tabPositionInput: adsk.core.ValueCommandInput = inputs.itemById(BIN_TAB_ANGLE_INPUT_ID)
-    tabAngleInput: adsk.core.ValueCommandInput = inputs.itemById(BIN_TAB_POSITION_INPUT_ID)
-    binTabFeaturesGroup: adsk.core.GroupCommandInput = inputs.itemById(BIN_TAB_FEATURES_GROUP_ID)
-    binCompartmentsTable: adsk.core.TableCommandInput = inputs.itemById(BIN_COMPARTMENTS_TABLE_ID)
-    binCompartmentsGridType: adsk.core.DropDownCommandInput = inputs.itemById(BIN_COMPARTMENTS_GRID_TYPE_ID)
-
 
     # General logging for debug.
     futil.log(f'{CMD_NAME} Input Changed Event fired from a change to {changed_input.id}')
@@ -697,31 +450,6 @@ def command_input_changed(args: adsk.core.InputChangedEventArgs):
                 adsk.core.ValueInput.createByReal(actualHeight),
                 )
 
-        if changed_input.id in [
-            BIN_BASE_WIDTH_UNIT_INPUT_ID,
-            BIN_BASE_LENGTH_UNIT_INPUT_ID,
-            BIN_HEIGHT_UNIT_INPUT_ID,
-            BIN_XY_TOLERANCE_INPUT_ID,
-            BIN_WIDTH_INPUT_ID,
-            BIN_LENGTH_INPUT_ID,
-            BIN_HEIGHT_INPUT_ID,
-            BIN_WITH_LIP_INPUT_ID,
-            BIN_COMPARTMENTS_GRID_BASE_LENGTH_ID,
-            BIN_COMPARTMENTS_GRID_BASE_WIDTH_ID,
-            BIN_WALL_THICKNESS_INPUT_ID,
-        ]:
-            update_actual_compartment_unit_dimensions(
-                staticInputCache.actualCompartmentDimensionUnitsTable,
-                uiState.baseWidth,
-                uiState.baseLength,
-                uiState.binWidth,
-                uiState.binLength,
-                uiState.compartmentsGridWidth,
-                uiState.compartmentsGridLength,
-                uiState.binWallThickness,
-                uiState.xyTolerance,
-                )
-
         if changed_input.id == BIN_TYPE_DROPDOWN_ID:
             selectedItem = binTypeDropdownInput.selectedItem.name
             if selectedItem == BIN_TYPE_HOLLOW:
@@ -740,44 +468,11 @@ def command_input_changed(args: adsk.core.InputChangedEventArgs):
             wallThicknessInput.isEnabled = hasBody.value
             withLipInput.isEnabled = hasBody.value
             withLipNotchesInput.isEnabled = hasBody.value
-            if not binTabFeaturesGroup == None:
-                for input in binTabFeaturesGroup.children:
-                    if input.id == BIN_HAS_TAB_INPUT_ID:
-                        hasTabInput = input
-                        input.isEnabled = hasBody.value
-                    else:
-                        input.isEnabled = hasBody.value and hasTabInput.value
         elif changed_input.id == BIN_WITH_LIP_INPUT_ID:
             withLipNotchesInput.isEnabled = withLipInput.value
-        elif changed_input.id == BIN_HAS_SCOOP_INPUT_ID:
-            scoopMaxRadiusInput.isEnabled = hasScoopInput.value
-        elif changed_input.id == BIN_HAS_TAB_INPUT_ID:
-            tabLengthInput.isEnabled = hasTabInput.value
-            tabWidthInput.isEnabled = hasTabInput.value
-            tabPositionInput.isEnabled = hasTabInput.value
-            tabAngleInput.isEnabled = hasTabInput.value
-        elif changed_input.id == BIN_COMPARTMENTS_TABLE_ADD_ID:
-            append_compartment_table_row(inputs, 0, 0, 1, 1, (uiState.binHeight + 1) * uiState.heightUnit - const.BIN_BASE_HEIGHT)
-        elif changed_input.id == BIN_COMPARTMENTS_TABLE_REMOVE_ID:
-            if binCompartmentsTable.selectedRow > 0:
-                binCompartmentsTable.deleteRow(binCompartmentsTable.selectedRow)
-            elif binCompartmentsTable.rowCount > 1:
-                binCompartmentsTable.deleteRow(binCompartmentsTable.rowCount - 1)
-        elif changed_input.id == BIN_COMPARTMENTS_TABLE_UNIFORM_ID:
-            for i in range(binCompartmentsTable.rowCount - 1, 0, -1):
-                binCompartmentsTable.deleteRow(i)
-            for i in range(uiState.compartmentsGridWidth):
-                for j in range(uiState.compartmentsGridLength):
-                    append_compartment_table_row(inputs, i, j, 1, 1, (uiState.binHeight + 1) * uiState.heightUnit - const.BIN_BASE_HEIGHT)
-        elif changed_input.id == BIN_COMPARTMENTS_GRID_TYPE_ID:
-            showTable = binCompartmentsGridType.selectedItem.name == BIN_COMPARTMENTS_GRID_TYPE_CUSTOM
-            binCompartmentsTable.isVisible = showTable
         elif changed_input.id == SHOW_PREVIEW_INPUT:
             showPreviewManual.isVisible = not showPreview.value
 
-
-        if changed_input.parentCommandInput and changed_input.parentCommandInput.id == BIN_COMPARTMENTS_TABLE_ID:
-            cache_compartments_table_state(inputs)
     except:
         showErrorInMessageBox()
 
@@ -824,18 +519,7 @@ def generateBin(args: adsk.core.CommandEventArgs):
     bin_magnet_cutout_depth: adsk.core.ValueCommandInput = inputs.itemById(BIN_MAGNET_HEIGHT_INPUT)
     with_lip: adsk.core.BoolValueCommandInput = inputs.itemById(BIN_WITH_LIP_INPUT_ID)
     with_lip_notches: adsk.core.BoolValueCommandInput = inputs.itemById(BIN_WITH_LIP_NOTCHES_INPUT_ID)
-    has_scoop: adsk.core.BoolValueCommandInput = inputs.itemById(BIN_HAS_SCOOP_INPUT_ID)
-    binScoopMaxRadius: adsk.core.ValueCommandInput = inputs.itemById(BIN_SCOOP_MAX_RADIUS_INPUT_ID)
-    hasTabInput: adsk.core.BoolValueCommandInput = inputs.itemById(BIN_HAS_TAB_INPUT_ID)
-    binTabLength: adsk.core.ValueCommandInput = inputs.itemById(BIN_TAB_LENGTH_INPUT_ID)
-    binTabWidth: adsk.core.ValueCommandInput = inputs.itemById(BIN_TAB_WIDTH_INPUT_ID)
-    binTabPosition: adsk.core.ValueCommandInput = inputs.itemById(BIN_TAB_POSITION_INPUT_ID)
-    binTabAngle: adsk.core.ValueCommandInput = inputs.itemById(BIN_TAB_ANGLE_INPUT_ID)
     binTypeDropdownInput: adsk.core.DropDownCommandInput = inputs.itemById(BIN_TYPE_DROPDOWN_ID)
-    binCompartmentGridTypeDropdownInput: adsk.core.DropDownCommandInput = inputs.itemById(BIN_COMPARTMENTS_GRID_TYPE_ID)
-    binCompartmentsTable: adsk.core.TableCommandInput = inputs.itemById(BIN_COMPARTMENTS_TABLE_ID)
-    compartmentsX: adsk.core.IntegerSpinnerCommandInput = inputs.itemById(BIN_COMPARTMENTS_GRID_BASE_WIDTH_ID)
-    compartmentsY: adsk.core.IntegerSpinnerCommandInput = inputs.itemById(BIN_COMPARTMENTS_GRID_BASE_LENGTH_ID)
 
     isHollow = binTypeDropdownInput.selectedItem.name == BIN_TYPE_HOLLOW
     isSolid = binTypeDropdownInput.selectedItem.name == BIN_TYPE_SOLID
@@ -899,28 +583,13 @@ def generateBin(args: adsk.core.CommandEventArgs):
         binBodyInput.xyTolerance = tolerance
         binBodyInput.isSolid = isSolid or isShelled
         binBodyInput.wallThickness = bin_wall_thickness.value
-        binBodyInput.hasScoop = has_scoop.value and isHollow
-        binBodyInput.scoopMaxRadius = binScoopMaxRadius.value
-        binBodyInput.hasTab = hasTabInput.value and isHollow
-        binBodyInput.tabLength = binTabLength.value
-        binBodyInput.tabWidth = binTabWidth.value
-        binBodyInput.tabPosition = binTabPosition.value
-        binBodyInput.tabOverhangAngle = binTabAngle.value
-        binBodyInput.compartmentsByX = compartmentsX.value
-        binBodyInput.compartmentsByY = compartmentsY.value
+        binBodyInput.hasScoop = False
+        binBodyInput.hasTab = False
+        binBodyInput.compartmentsByX = 1
+        binBodyInput.compartmentsByY = 1
         binBodyInput.isLid = True
 
-        if binCompartmentGridTypeDropdownInput.selectedItem.name == BIN_COMPARTMENTS_GRID_TYPE_UNIFORM:
-            binBodyInput.compartments = uniformCompartments(binBodyInput.compartmentsByX, binBodyInput.compartmentsByY)
-        else:
-            binBodyInput.compartments = []
-            for i in range(1, binCompartmentsTable.rowCount):
-                positionX: adsk.core.IntegerSpinnerCommandInput = binCompartmentsTable.getInputAtPosition(i, 0)
-                positionY: adsk.core.IntegerSpinnerCommandInput  = binCompartmentsTable.getInputAtPosition(i, 1)
-                width: adsk.core.IntegerSpinnerCommandInput = binCompartmentsTable.getInputAtPosition(i, 2)
-                length: adsk.core.IntegerSpinnerCommandInput = binCompartmentsTable.getInputAtPosition(i, 3)
-                depth: adsk.core.ValueCommandInput = binCompartmentsTable.getInputAtPosition(i, 4)
-                binBodyInput.compartments.append(BinBodyCompartmentDefinition(positionX.value, positionY.value, width.value, length.value, depth.value))
+        binBodyInput.compartments = uniformCompartments(binBodyInput.compartmentsByX, binBodyInput.compartmentsByY)
 
         binBody: adsk.fusion.BRepBody
 
