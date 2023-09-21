@@ -2,14 +2,6 @@ from typing import Dict
 from dataclasses import dataclass
 
 @dataclass
-class CompartmentTableRow:
-    x: int
-    y: int
-    width: int
-    length: int
-    depth: float
-
-@dataclass
 class InputState:
     groups: Dict[str, bool]
     baseWidth: float
@@ -24,16 +16,6 @@ class InputState:
     binWallThickness: float
     hasLip: bool
     hasLipNotches: bool
-    compartmentsGridWidth: int
-    compartmentsGridLength: int
-    compartmentsGridType: str
-    hasScoop: bool
-    scoopMaxRadius: float
-    hasTab: bool
-    tabLength: float
-    tabWidth: float
-    tabAngle: float
-    tabOffset: float
     hasBase: bool
     hasBaseScrewHole: bool
     baseScrewHoleSize: float
@@ -41,7 +23,6 @@ class InputState:
     baseMagnetSocketSize: float
     baseMagnetSocketDepth: float
     preserveChanges: bool
-    customCompartments: list[CompartmentTableRow]
 
     def getGroupExpandedState(self, id: str):
       if id in self.groups:
