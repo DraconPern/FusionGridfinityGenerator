@@ -35,7 +35,7 @@ CMD_Description = 'Create simple gridfinity bin'
 IS_PROMOTED = True
 
 # TODO *** Define the location where the command button will be created. ***
-# This is done by specifying the workspace, the tab, and the panel, and the 
+# This is done by specifying the workspace, the tab, and the panel, and the
 # command it will be inserted beside. Not providing the command to position it
 # will insert it at the end.
 WORKSPACE_ID = 'FusionSolidEnvironment'
@@ -119,20 +119,20 @@ def defaultUiState():
         baseLength=const.DIMENSION_DEFAULT_WIDTH_UNIT,
         heightUnit=const.DIMENSION_DEFAULT_HEIGHT_UNIT,
         xyTolerance=const.BIN_XY_TOLERANCE,
-        binWidth=2,
-        binLength=3,
-        binHeight=5,
+        binWidth=1,
+        binLength=1,
+        binHeight=6,
         hasBody=True,
         binBodyType=BIN_TYPE_HOLLOW,
         binWallThickness=const.BIN_WALL_THICKNESS,
         hasLip=True,
-        hasLipNotches=False,
+        hasLipNotches=True,
         compartmentsGridWidth=1,
         compartmentsGridLength=1,
         compartmentsGridType=BIN_COMPARTMENTS_GRID_TYPE_UNIFORM,
-        hasScoop=False,
-        scoopMaxRadius=const.BIN_SCOOP_MAX_RADIUS,
-        hasTab=False,
+        hasScoop=True,
+        scoopMaxRadius=1,
+        hasTab=True,
         tabLength=1,
         tabWidth=const.BIN_TAB_WIDTH,
         tabAngle=45,
@@ -194,7 +194,6 @@ def stop():
     addinConfig = configUtils.readConfig(CONFIG_FOLDER_PATH)
     addinConfig['UI']['is_promoted'] = 'yes' if command_control.isPromoted else 'no'
     configUtils.writeConfig(addinConfig, CONFIG_FOLDER_PATH)
-        
 
     # Delete the button command control
     if command_control:
@@ -552,7 +551,7 @@ def command_created(args: adsk.core.CommandCreatedEventArgs):
     futil.add_handler(args.command.destroy, command_destroy, local_handlers=local_handlers)
 
 
-# This event handler is called when the user clicks the OK button in the command dialog or 
+# This event handler is called when the user clicks the OK button in the command dialog or
 # is immediately called after the created event not command inputs were created for the dialog.
 def command_execute(args: adsk.core.CommandEventArgs):
     futil.log(f'{CMD_NAME} Command Execute Event')
@@ -651,7 +650,7 @@ def command_input_changed(args: adsk.core.InputChangedEventArgs):
     changed_input = args.input
     record_input_change(changed_input)
     inputs = args.inputs
-    
+
     showPreview: adsk.core.BoolValueCommandInput = inputs.itemById(SHOW_PREVIEW_INPUT)
     showPreviewManual: adsk.core.BoolValueCommandInput = inputs.itemById(SHOW_PREVIEW_MANUAL_INPUT)
     wallThicknessInput: adsk.core.ValueCommandInput = inputs.itemById(BIN_WALL_THICKNESS_INPUT_ID)
@@ -700,7 +699,7 @@ def command_input_changed(args: adsk.core.InputChangedEventArgs):
                 adsk.core.ValueInput.createByReal(actualLength),
                 adsk.core.ValueInput.createByReal(actualHeight),
                 )
-            
+
         if changed_input.id in [
             BIN_BASE_WIDTH_UNIT_INPUT_ID,
             BIN_BASE_LENGTH_UNIT_INPUT_ID,
@@ -725,7 +724,7 @@ def command_input_changed(args: adsk.core.InputChangedEventArgs):
                 uiState.binWallThickness,
                 uiState.xyTolerance,
                 )
-            
+
         if changed_input.id == BIN_TYPE_DROPDOWN_ID:
             selectedItem = binTypeDropdownInput.selectedItem.name
             if selectedItem == BIN_TYPE_HOLLOW:
@@ -794,10 +793,10 @@ def command_validate_input(args: adsk.core.ValidateInputsEventArgs):
     futil.log(f'{CMD_NAME} Validate Input Event')
 
     inputs = args.inputs
-    
+
     # Verify the validity of the input values. This controls if the OK button is enabled or not.
     args.areInputsValid = is_all_input_valid(inputs)
-        
+
 
 # This event handler is called when the command terminates.
 def command_destroy(args: adsk.core.CommandEventArgs):
@@ -872,7 +871,7 @@ def generateBin(args: adsk.core.CommandEventArgs):
         baseGeneratorInput.magnetCutoutsDepth = bin_magnet_cutout_depth.value
 
         baseBody: adsk.fusion.BRepBody
-        
+
         if bin_generate_base.value:
             baseBody = createGridfinityBase(baseGeneratorInput, gridfinityBinComponent)
             # replicate base in rectangular pattern
